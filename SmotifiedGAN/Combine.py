@@ -24,6 +24,6 @@ elif option ==10:
     DataProcessing.covid()
 elif option ==11:
     DataProcessing.breastCancer()
-
+ 
 
 
