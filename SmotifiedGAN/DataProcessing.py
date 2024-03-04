@@ -113,89 +113,12 @@ def GenerateResults(TuningParameters):
     smote = torch.from_numpy(X_oversampled) 
     SmoteNoise = smote.float().to(device)
 
-    cur_step = 0
-    mean_generator_loss = 0
-    mean_discriminator_loss = 0
-    test_generator = True 
-    gen_loss_SMOTE = False
-    error = False
-
-    for epoch in range(numberof_epochs):
-        for real, _ in tqdm(dataloader):
-            cur_batch_size = len(real)
-            real = real.view(cur_batch_size, -1).to(device)
-
-            disc_opt_SMOTE.zero_grad()
-            disc_loss_SMOTE = common.get_disc_loss_smote(genSMOTE, disc_SMOTE, criterion, real, SmoteNoise )
-            disc_loss_SMOTE.backward(retain_graph=True)
-            disc_opt_SMOTE.step()
-
-            if test_generator:
-                old_generator_weights = genSMOTE.gen[0][0].weight.detach().clone()
-
-            gen_opt_SMOTE.zero_grad()
-            gen_loss_SMOTE = common.get_gen_loss_smote(genSMOTE, disc_SMOTE, criterion, SmoteNoise)
-            gen_loss_SMOTE.backward()
-            gen_opt_SMOTE.step()
-
-            if test_generator:
-                try:
-                    assert learningRate > 0.0000002 or (
-                        genSMOTE.gen[0][0].weight.grad.abs().max() < 0.0005 and epoch == 0)
-                    assert torch.any(
-                        genSMOTE.gen[0][0].weight.detach().clone() != old_generator_weights)
-                except:
-                    error = True
-                    print("Runtime tests have failed")
-
-            mean_discriminator_loss += disc_loss_SMOTE.item() / display_step
-            mean_generator_loss += gen_loss_SMOTE.item() / display_step
-
-            if cur_step % display_step == 0 and cur_step > 0:
-                print(
-                    f"Epoch {epoch}, step {cur_step}: Generator loss: {mean_generator_loss}, discriminator loss: {mean_discriminator_loss}")
-                mean_generator_loss = 0
-                mean_discriminator_loss = 0
-            cur_step += 1
-            
-    train_accuracy_SMOTEGAN=[]
-    test_accuracy_SMOTEGAN =[]
-    precision_SMOTEGAN=[]
-    recall_SMOTEGAN =[]
-    f1_score_SMOTEGAN =[]
-    SMOTEGAN = []
-    classifier = "NN -, "
-
-    for i in range(30):
-        generated_data_SMOTE = genSMOTE(SmoteNoise)
-        generated_data_cpu_SMOTE = generated_data_SMOTE.cpu().detach().numpy()
-        combined_data_SMOTE =np.concatenate((X_train[:(t2[0])], generated_data_cpu_SMOTE ), axis=0)
-        XSmotified,ySmotified= common.shuffle_in_unison(combined_data_SMOTE , y_train_res)
-        
-        SMOTEGAN = common.callf1(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),epochfOne)
-      
-        train_accuracy_SMOTEGAN.append(SMOTEGAN[0])
-        test_accuracy_SMOTEGAN.append(SMOTEGAN[1])
-        precision_SMOTEGAN.append(SMOTEGAN[2])
-        recall_SMOTEGAN.append(SMOTEGAN[3])
-        f1_score_SMOTEGAN.append(SMOTEGAN[4]) 
-
-    # SMOTIFIEDGANresults = common.trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,
-    #                 genSMOTE,disc_SMOTE,criterion,SmoteNoise,gen_opt_SMOTE,learningRate,
-    #             display_step,X_train_res,y_train_res,X_test,y_test,epochfOne,t2,X_train)
-    
-    print("SMOTIFIEDGAN  Train - , ",np.mean(train_accuracy_SMOTEGAN), file=open("output.txt", "a"))
-    print("SMOTIFIEDGAN  Test - ,",np.mean(test_accuracy_SMOTEGAN), file=open("output.txt", "a"))
-    print("SMOTIFIEDGAN  F1-score - ,",np.mean(f1_score_SMOTEGAN), file=open("output.txt", "a"))
-    print("SMOTIFIEDGAN  precision - ,",np.mean(precision_SMOTEGAN), file=open("output.txt", "a"))
-    print("SMOTIFIEDGAN nd recall - ,",np.mean(recall_SMOTEGAN), file=open("output.txt", "a"))   
-
-    
-
+    SMOTIFIEDGANresults = common.trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,
+                    genSMOTE,disc_SMOTE,criterion,SmoteNoise,gen_opt_SMOTE,learningRate,
+                display_step,X_train_res,y_train_res,X_test,y_test,epochfOne,t2,X_train)
+  
     # #MCMC SECTION 
     synthetic_data,X_MCMC,y_MCMC = common.MCMC(X_train,y_train,X)
-
-    # #for f in range(5):
 
     train_accuracy_MCMC=[]
     test_accuracy_MCMC =[]
@@ -203,18 +126,11 @@ def GenerateResults(TuningParameters):
     precision_MCMC = []
     recall_MCMC = []
     MCMC = []
-    classifier = "NN -, "
 
     for i in range(30):
         
         MCMC = common.callf1(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-        #MCMC = common.RandomForest(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-        # MCMC = common.SVM(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-        # MCMC = common.XGBoost(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-        # MCMC = common.LG(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-            
-        #MCMC = common.callf1(X_MCMC,y_MCMC,X_test,y_test,epochfOne)
-
+       
         train_accuracy_MCMC.append(MCMC[0])
         test_accuracy_MCMC.append(MCMC[1])
         precision_MCMC.append(MCMC[2])
@@ -228,132 +144,54 @@ def GenerateResults(TuningParameters):
     print("MCMC F1-score - , ",np.mean(f1_score_MCMC), file=open("output.txt", "a"))
     
 
-
-
-    # # # MCMC GAN SECTION
+     # MCMC GAN SECTION
     genMCMC = common.Generator(z_dim,im_dim = z_dim).to(device)
     gen_opt_MCMC = torch.optim.Adam(genMCMC.parameters(), lr=learningRate)
     disc_MCMC = common.Discriminator(im_dim = z_dim).to(device) 
     disc_opt_MCMC = torch.optim.Adam(disc_MCMC.parameters(), lr=learningRate)
     MCMCied = torch.from_numpy(synthetic_data)
     MCMC_Noise = MCMCied.float().to(device)
-
     
-    cur_step = 0
-    mean_generator_loss = 0
-    mean_discriminator_loss = 0
-    test_generator = True 
-    gen_loss_MCMC = False
-    error = False
 
-    for epoch in range(numberof_epochs):
-        for real, _ in tqdm(dataloader):
-            cur_batch_size = len(real)
-            real = real.view(cur_batch_size, -1).to(device)
-
-            disc_opt_MCMC.zero_grad()
-            disc_loss_MCMC = common.get_disc_loss_smote(genMCMC, disc_MCMC, criterion, real, MCMC_Noise )
-            disc_loss_MCMC.backward(retain_graph=True)
-            disc_opt_MCMC.step()
-
-            if test_generator:
-                old_generator_weights = genMCMC.gen[0][0].weight.detach().clone()
-
-            gen_opt_MCMC.zero_grad()
-            MCMC_Noise = MCMCied.float().to(device)
-            gen_loss_MCMC = common.get_gen_loss_smote(genMCMC, disc_MCMC, criterion,MCMC_Noise)
-
-            gen_loss_MCMC.backward()
-            gen_opt_MCMC.step()
-
-            if test_generator:
-                try:
-                    assert learningRate > 0.0000002 or (
-                        genMCMC.gen[0][0].weight.grad.abs().max() < 0.0005 and epoch == 0)
-                    assert torch.any(
-                        genMCMC.gen[0][0].weight.detach().clone() != old_generator_weights)
-                except:
-                    error = True
-                    print("Runtime tests have failed")
-
-            mean_discriminator_loss += disc_loss_MCMC.item() / display_step
-            mean_generator_loss += gen_loss_MCMC.item() / display_step
-
-            if cur_step % display_step == 0 and cur_step > 0:
-                print(
-                    f"Epoch {epoch}, step {cur_step}: Generator loss: {mean_generator_loss}, discriminator loss: {mean_discriminator_loss}")
-                mean_generator_loss = 0
-                mean_discriminator_loss = 0
-            cur_step += 1
-            
-    train_accuracy_MCMCGAN=[]
-    test_accuracy_MCMCGAN =[]
-    precision_MCMCGAN=[]
-    recall_MCMCGAN =[]
-    f1_score_MCMCGAN =[]
-    MCMCGAN = []
-    classifier = "NN -, "
-
-    for i in range(30):
-        generated_data_MCMC = genMCMC(MCMC_Noise)
-        generated_data_cpu_MCMC = generated_data_MCMC.cpu().detach().numpy()
-        combined_data_MCMC =np.concatenate((X_train[:(t2[0])], generated_data_cpu_MCMC ), axis=0)
-        XSmotified,ySmotified= common.shuffle_in_unison(combined_data_MCMC , y_train_res)
-        
-        MCMCGAN = common.callf1(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),epochfOne)
-      
-        train_accuracy_MCMCGAN.append(MCMCGAN[0])
-        test_accuracy_MCMCGAN.append(MCMCGAN[1])
-        precision_MCMCGAN.append(MCMCGAN[2])
-        recall_MCMCGAN.append(MCMCGAN[3])
-        f1_score_MCMCGAN.append(MCMCGAN[4]) 
-
-
-    # # MCMCIEDGANresults = common.trainGAN(numberof_epochs,dataloader,device,disc_opt_MCMC,genMCMC,disc_MCMC,criterion,MCMC_Noise,gen_opt_MCMC,learningRate,
-    # #     display_step,X_train_res,y_train_res,X_test,y_test,epochfOne,t2,X_train)
-
-    print("MCMCIEDGAN  Train - , ",np.mean(train_accuracy_MCMCGAN), file=open("output.txt", "a"))
-    print("MCMCIEDGAN  Test - ,",np.mean(test_accuracy_MCMCGAN), file=open("output.txt", "a"))
-    print("MCMCIEDGAN  F1-score - ,",np.mean(f1_score_MCMCGAN), file=open("output.txt", "a"))
-    print("MCMCIEDGAN  precision - ,",np.mean(precision_MCMCGAN), file=open("output.txt", "a"))
-    print("MCMCIEDGAN nd recall - ,",np.mean(recall_MCMCGAN), file=open("output.txt", "a")) 
+    MCMCIEDGANresults = common.trainGAN(numberof_epochs,dataloader,device,disc_opt_MCMC,genMCMC,disc_MCMC,criterion,MCMC_Noise,gen_opt_MCMC,learningRate,
+        display_step,X_train_res,y_train_res,X_test,y_test,epochfOne,t2,X_train)
 
     # #PRINTING SECTION 
-    # print("NON OVERSAMPLED Train - ",np.mean(NonSampled[0]))
-    # print("NON OVERSAMPLED Test - ",np.mean(NonSampled[1]))
-    # print("NON OVERSAMPLED F1-score - ",np.mean(NonSampled[2]))
-    # print("NON OVERSAMPLED precision - ",np.mean(NonSampled[3]))
-    # print("NON OVERSAMPLED recall - ",np.mean(NonSampled[4]))
+    print("NON OVERSAMPLED Train - ",np.mean(NonSampled[0]))
+    print("NON OVERSAMPLED Test - ",np.mean(NonSampled[1]))
+    print("NON OVERSAMPLED F1-score - ",np.mean(NonSampled[2]))
+    print("NON OVERSAMPLED precision - ",np.mean(NonSampled[3]))
+    print("NON OVERSAMPLED recall - ",np.mean(NonSampled[4]))
 
-    # print("SMOTE Train - ",np.mean(SMOTEE[0]))
-    # print("SMOTE Test - ",np.mean(SMOTEE[1]))
-    # print("SMOTE precision - ",np.mean(SMOTEE[2]))
-    # print("SMOTE recall - ",np.mean(SMOTEE[3]))
-    # print("SMOTE F1-score - ",np.mean(SMOTEE[4]))
+    print("SMOTE Train - ",np.mean(SMOTEE[0]))
+    print("SMOTE Test - ",np.mean(SMOTEE[1]))
+    print("SMOTE precision - ",np.mean(SMOTEE[2]))
+    print("SMOTE recall - ",np.mean(SMOTEE[3]))
+    print("SMOTE F1-score - ",np.mean(SMOTEE[4]))
 
-    # print("GAN Train - ",np.mean(GANResults[0]))
-    # print("GAN Test - ",np.mean(GANResults[1]))
-    # print("GAN F1-score - ",np.mean(GANResults[2]))
-    # print("GAN precision - ",np.mean(GANResults[3]))
-    # print("GAN recall - ",np.mean(GANResults[4]))
+    print("GAN Train - ",np.mean(GANResults[0]))
+    print("GAN Test - ",np.mean(GANResults[1]))
+    print("GAN F1-score - ",np.mean(GANResults[2]))
+    print("GAN precision - ",np.mean(GANResults[3]))
+    print("GAN recall - ",np.mean(GANResults[4]))
 
-    # print("SMOTEGAN Train - ",np.mean(SMOTIFIEDGANresults[0]))
-    # print("SMOTEGAN Test - ",np.mean(SMOTIFIEDGANresults[1]))
-    # print("SMOTEGAN F1-score - ",np.mean(SMOTIFIEDGANresults[2]))
-    # print("SMOTEGAN Precision - ",np.mean(SMOTIFIEDGANresults[3]))
-    # print("SMOTEGAN recall - ",np.mean(SMOTIFIEDGANresults[4]))
+    print("SMOTEGAN Train - ",np.mean(SMOTIFIEDGANresults[0]))
+    print("SMOTEGAN Test - ",np.mean(SMOTIFIEDGANresults[1]))
+    print("SMOTEGAN F1-score - ",np.mean(SMOTIFIEDGANresults[2]))
+    print("SMOTEGAN Precision - ",np.mean(SMOTIFIEDGANresults[3]))
+    print("SMOTEGAN recall - ",np.mean(SMOTIFIEDGANresults[4]))
 
-    # print("MCMC Train - ",np.mean(train_accuracy_MCMC))
-    # print("MCMC Test - ",np.mean(test_accuracy_MCMC))
-    # print("MCMC F1-score - ",np.mean(f1_score_MCMC))
-    # print("MCMC precision - ",np.mean(precision_MCMC))
-    # print("MCMC recall - ",np.mean(recall_MCMC))
+    print("MCMC Train - ",np.mean(train_accuracy_MCMC))
+    print("MCMC Test - ",np.mean(test_accuracy_MCMC))
+    print("MCMC F1-score - ",np.mean(f1_score_MCMC))
+    print("MCMC precision - ",np.mean(precision_MCMC))
+    print("MCMC recall - ",np.mean(recall_MCMC))
 
-    # print("MCMC-GAN Train - ",np.mean(MCMCIEDGANresults[0]))
-    # print("MCMC-GAN Test - ",np.mean(MCMCIEDGANresults[1]))
-    # print("MCMC-GAN F1-score - ",np.mean(MCMCIEDGANresults[2]))
-    # print("MCMC-GAN precision - ",np.mean(MCMCIEDGANresults[3]))
-    # print("MCMC-GAN recall - ",np.mean(MCMCIEDGANresults[4]))
+    print("MCMC-GAN Train - ",np.mean(MCMCIEDGANresults[0]))
+    print("MCMC-GAN Test - ",np.mean(MCMCIEDGANresults[1]))
+    print("MCMC-GAN F1-score - ",np.mean(MCMCIEDGANresults[2]))
+    print("MCMC-GAN precision - ",np.mean(MCMCIEDGANresults[3]))
+    print("MCMC-GAN recall - ",np.mean(MCMCIEDGANresults[4]))
 
     return t2
 

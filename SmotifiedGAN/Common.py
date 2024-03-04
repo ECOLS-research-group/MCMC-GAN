@@ -7,11 +7,6 @@ from sklearn.metrics import (
     f1_score
 )
 
-from sklearn.ensemble import RandomForestClassifier
-from sklearn import svm
-from xgboost import XGBClassifier
-from sklearn.linear_model import LogisticRegression
-
 from imblearn.over_sampling import SMOTE
 import torch
 from torch import nn
@@ -19,7 +14,7 @@ from tqdm.auto import tqdm
 from collections import Counter
 from torch.utils.data import TensorDataset, DataLoader
  
-
+#THIS F1 FUNCTION IS TO TRAINING AND TESTING THE GENERATED DATA AND ITS TO MEASURE THE ACCURACY.
 def callf1(xx,yy,xt,yt,ep):#model with 3 layers
 
     model = tf.keras.Sequential([
@@ -54,6 +49,8 @@ def callf1(xx,yy,xt,yt,ep):#model with 3 layers
 
     return ls
 
+
+#THIS FUNCTION IS FOR SHUFFLING THE GENERATED DATA WITH THE ORIGINAL DATA 
 def shuffle_in_unison(a, b):
     assert len(a) == len(b)
     shuffled_a = np.empty(a.shape, dtype=a.dtype)
@@ -134,6 +131,7 @@ def get_gen_loss_smote(gen, disc, criterion, noise):
     return gen_loss
 
 #DATA GENERATION METHODS
+#THIS FUNCTION ACCEPTS DATA TO INSERT INTO GAN FOR TRAINING AS VARIABLE, THAT IS DATA FROM SMOTE, RANDOM OR MCMC
 def trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,genSMOTE,disc_SMOTE,criterion,SmoteNoise,gen_opt_SMOTE,learningRate,
             display_step,X_train_res,y_train_res,X_test,y_test,ep,t2,x_train):
 
@@ -188,7 +186,6 @@ def trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,genSMOTE,disc_SMOT
     recall_SMOTEGAN =[]
     f1_score_SMOTEGAN =[]
     SMOTEGAN = []
-    classifier = "NN -, "
 
     for i in range(30):
         generated_data_SMOTE = genSMOTE(SmoteNoise)
@@ -197,12 +194,7 @@ def trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,genSMOTE,disc_SMOT
         XSmotified,ySmotified= shuffle_in_unison(combined_data_SMOTE , y_train_res)
         
         SMOTEGAN = callf1(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
-        #SMOTEGAN = RandomForest(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
-        # SMOTEGAN = SVM(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
-        # SMOTEGAN = XGBoost(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
-        # SMOTEGAN = LG(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
-        
-        #SMOTEGAN = callf1(XSmotified,ySmotified.ravel(),X_test,y_test.ravel(),ep)
+
         train_accuracy_SMOTEGAN.append(SMOTEGAN[0])
         test_accuracy_SMOTEGAN.append(SMOTEGAN[1])
         precision_SMOTEGAN.append(SMOTEGAN[2])
@@ -212,6 +204,7 @@ def trainGAN(numberof_epochs,dataloader,device,disc_opt_SMOTE,genSMOTE,disc_SMOT
     
     return train_accuracy_SMOTEGAN,test_accuracy_SMOTEGAN,f1_score_SMOTEGAN,precision_SMOTEGAN,recall_SMOTEGAN
 
+#THIS METHOD PRODUCED RAW MCMC GENERATED DATA
 def MCMC(X_train,y_train,X):
     
     class_counts = Counter(y_train)
@@ -252,11 +245,9 @@ def MCMC(X_train,y_train,X):
     
     return synthetic_data,X_MCMC,y_MCMC
 
+#THIS METHOD WORKS ON THE ORIGINAL NON OVERSAMPLED DATA THAT IS UNBALANCE
 def NON_OVERSAMPLED(X_train,y_train,X_test,y_test,epochfOne,NN_ep):
 
-    # for f in range(5):
-    #     #f = 2
-    
     train_accuracy =[]
     test_accuracy =[]
     Precision =[]
@@ -268,26 +259,16 @@ def NON_OVERSAMPLED(X_train,y_train,X_test,y_test,epochfOne,NN_ep):
     for i in range(30):
         
         IMBALANCED = callf1(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
-        #IMBALANCED = RandomForest(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
-        # IMBALANCED = SVM(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
-        # IMBALANCED = XGBoost(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
-        # IMBALANCED = LG(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
-            
-        #IMBALANCED = callf1(X_train,y_train.ravel(),X_test,y_test.ravel(),epochfOne)
+       
         train_accuracy.append(IMBALANCED[0])
         test_accuracy.append(IMBALANCED[1])
         Precision.append(IMBALANCED[2])
         recall.append(IMBALANCED[3])
         f1_score_.append(IMBALANCED[4]) 
 
-    print("NON OVERSAMPLED Train - , ",classifier,np.mean(train_accuracy[0]), file=open("output.txt", "a"))
-    print("NON OVERSAMPLED Test - ,",classifier,np.mean(test_accuracy[1]), file=open("output.txt", "a"))
-    print("NON OVERSAMPLED F1-score - ,",classifier,np.mean(f1_score_[2]), file=open("output.txt", "a"))
-    print("NON OVERSAMPLED precision - ,",classifier,np.mean(Precision[3]), file=open("output.txt", "a"))
-    print("NON OVERSAMPLED recall - ,",classifier,np.mean(recall[4]), file=open("output.txt", "a"))
-
     return train_accuracy,test_accuracy,f1_score_,Precision,recall
 
+# THIS METHOD WORKS ON THE DATA GENRATED BY SMOTE
 def SMOTIfied(X_train,y_train,X_test,y_test,epochfOne,NN_ep):
      
     train_accuracy_SMOTE=[]
@@ -302,24 +283,11 @@ def SMOTIfied(X_train,y_train,X_test,y_test,epochfOne,NN_ep):
 
     for i in range(30):
         SMOTER = callf1(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epochfOne)
-        # SMOTER = RandomForest(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epochfOne)
-        # SMOTER = SVM(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epoc/hfOne)
-        # SMOTER = XGBoost(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epochfOne)
-        # SMOTER = LG(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epochfOne)
-
-        #SMOTER = callf1(X_train_res,y_train_res.ravel(),X_test,y_test.ravel(),epochfOne)
         train_accuracy_SMOTE.append(SMOTER[0])
         test_accuracy_SMOTE.append(SMOTER[1])
         Precision_SMOTE.append(SMOTER[2])
         Recall_SMOTE.append(SMOTER[3])
         f1_score_SMOTE.append(SMOTER[4]) 
-
-    print("SMOTE Train  - , ",classifier,np.mean(train_accuracy_SMOTE), file=open("output.txt", "a"))
-    print("SMOTE Test - , ",classifier,np.mean(test_accuracy_SMOTE), file=open("output.txt", "a"))
-    print("SMOTE precision - , ",classifier,np.mean(Precision_SMOTE), file=open("output.txt", "a"))
-    print("SMOTE recall - , ",classifier,np.mean(Recall_SMOTE), file=open("output.txt", "a"))
-    print("SMOTE F1-score - , ",classifier,np.mean(f1_score_SMOTE), file=open("output.txt", "a"))
-
 
     return train_accuracy_SMOTE,test_accuracy_SMOTE,Precision_SMOTE,Recall_SMOTE,f1_score_SMOTE
 
